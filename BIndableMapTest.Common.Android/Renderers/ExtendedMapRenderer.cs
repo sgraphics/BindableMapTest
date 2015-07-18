@@ -11,10 +11,15 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using Android.App;
+using Android.Content;
+using Android.Content.Res;
+using Android.Graphics;
 using Android.OS;
 using Android.Provider;
 using BindableMapTest.Interfaces;
+using BIndableMapTest.Common.Android;
 using Xamarin;
+using Color = Xamarin.Forms.Color;
 
 [assembly: ExportRenderer (typeof(ExtendedMap), typeof(ExtendedMapRenderer))]
 namespace BindableMapTest.Android.Renderers
@@ -22,15 +27,16 @@ namespace BindableMapTest.Android.Renderers
 	public class ExtendedMapRenderer : MapRenderer
 	{
 		bool _isDrawnDone;
+		private static int _pinResource;
 
-		public static void Init(Activity activity, Bundle bundle)
+		public static void Init(Activity activity, Bundle bundle, int pinResource)
 		{
+			_pinResource = pinResource;
 			FormsMaps.Init(activity, bundle);
 		}
 
 		protected override void OnElementChanged(Xamarin.Forms.Platform.Android.ElementChangedEventArgs<View> e)
 		{
-			throw new Exception("texx");
 			base.OnElementChanged(e);
 			var formsMap = (ExtendedMap)Element;
 			var androidMapView = (MapView)Control;
@@ -48,7 +54,6 @@ namespace BindableMapTest.Android.Renderers
 
 		protected override void OnElementPropertyChanged (object sender, PropertyChangedEventArgs e)
 		{
-			throw new Exception("texx");
 			base.OnElementPropertyChanged (sender, e);
 
 			if (e.PropertyName.Equals ("VisibleRegion") && !_isDrawnDone) {
@@ -84,7 +89,9 @@ namespace BindableMapTest.Android.Renderers
 
 				try
 				{
-					markerWithIcon.InvokeIcon(BitmapDescriptorFactory.FromResource(GetPinIcon()));
+					//var bitmapDescriptor = BitmapDescriptorFactory.FromResource(GetPinIcon());
+					var bitmapDescriptor = BitmapDescriptorFactory.FromBitmap(GetBitmapMarker(Context, _pinResource, "5m"));
+					markerWithIcon.InvokeIcon(bitmapDescriptor);
 				}
 				catch (Exception)
 				{
@@ -95,9 +102,40 @@ namespace BindableMapTest.Android.Renderers
 			}
 		}
 
+		public Bitmap GetBitmapMarker(Context mContext, int resourceId, string text)
+		{
+			Resources resources = mContext.Resources;
+			float scale = resources.DisplayMetrics.Density;
+			Bitmap bitmap = BitmapFactory.DecodeResource(resources, resourceId);
+
+			Bitmap.Config bitmapConfig = bitmap.GetConfig();
+
+			// set default bitmap config if none
+			if (bitmapConfig == null)
+				bitmapConfig = Bitmap.Config.Argb8888;
+
+			bitmap = bitmap.Copy(bitmapConfig, true);
+
+			Canvas canvas = new Canvas(bitmap);
+			Paint paint = new Paint(PaintFlags.AntiAlias);
+			paint.Color = global::Android.Graphics.Color.Black;
+			paint.TextSize = ((int)(14 * scale));
+			paint.SetShadowLayer(1f, 0f, 1f, global::Android.Graphics.Color.White);
+
+			// draw text to the Canvas center
+			Rect bounds = new Rect();
+			paint.GetTextBounds(text, 0, text.Length, bounds);
+			int x = (bitmap.Width - bounds.Width()) / 2;
+			int y = (bitmap.Height + bounds.Height()) / 2 - 20;
+
+			canvas.DrawText(text, x, y, paint);
+
+			return bitmap;
+		}
+
 		private static int GetPinIcon()
 		{
-			return Resource.Drawable.dog;
+			return _pinResource;
 		}
 
 		private void HandleMarkerClick (object sender, GoogleMap.MarkerClickEventArgs e)
